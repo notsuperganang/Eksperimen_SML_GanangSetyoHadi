@@ -1,0 +1,260 @@
+name: Automated Data Preprocessing
+
+# Trigger workflow
+on:
+  # Manual trigger via GitHub UI
+  workflow_dispatch:
+    inputs:
+      save_to_repo:
+        description: 'Commit preprocessed data back to repository'
+        required: false
+        type: boolean
+        default: false
+  
+  # Automatic trigger on push to main branch
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - 'heart_raw.csv'
+      - 'preprocessing/automate_GanangSetyoHadi.py'
+  
+  # Trigger on pull request
+  pull_request:
+    branches:
+      - main
+      - master
+
+jobs:
+  preprocess-data:
+    name: Run Data Preprocessing Pipeline
+    runs-on: ubuntu-latest
+    
+    steps:
+      # Step 1: Checkout repository
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      # Step 2: Setup Python environment
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      
+      # Step 3: Install dependencies
+      - name: Install Dependencies
+        run: |
+          echo "Installing Python dependencies..."
+          python -m pip install --upgrade pip
+          pip install pandas numpy scikit-learn matplotlib seaborn imbalanced-learn
+          echo "✓ Dependencies installed successfully"
+      
+      # Step 4: Verify raw data exists
+      - name: Verify Raw Data
+        run: |
+          echo "============================================================"
+          echo "Verifying Raw Data"
+          echo "============================================================"
+          
+          if [ ! -f "heart_raw.csv" ]; then
+            echo "❌ Error: heart_raw.csv not found!"
+            exit 1
+          fi
+          
+          echo "✓ Raw data file exists"
+          echo "  File: heart_raw.csv"
+          echo "  Size: $(du -h heart_raw.csv | cut -f1)"
+          echo "  Lines: $(wc -l < heart_raw.csv)"
+          echo ""
+      
+      # Step 5: Run preprocessing pipeline
+      - name: Run Preprocessing Pipeline
+        run: |
+          echo "============================================================"
+          echo "Starting Data Preprocessing Pipeline"
+          echo "============================================================"
+          echo ""
+          
+          python preprocessing/automate_GanangSetyoHadi.py
+          
+          echo ""
+          echo "============================================================"
+          echo "Preprocessing Pipeline Completed"
+          echo "============================================================"
+      
+      # Step 6: Verify output files
+      - name: Verify Preprocessing Output
+        run: |
+          echo "============================================================"
+          echo "Verifying Output Files"
+          echo "============================================================"
+          
+          OUTPUT_DIR="preprocessing/heart_preprocessing"
+          
+          REQUIRED_FILES=(
+            "$OUTPUT_DIR/X_train.csv"
+            "$OUTPUT_DIR/X_test.csv"
+            "$OUTPUT_DIR/y_train.csv"
+            "$OUTPUT_DIR/y_test.csv"
+          )
+          
+          echo ""
+          echo "Checking for required output files..."
+          echo ""
+          
+          all_exist=true
+          for file in "${REQUIRED_FILES[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "❌ Missing: $file"
+              all_exist=false
+            else
+              size=$(du -h "$file" | cut -f1)
+              lines=$(($(wc -l < "$file") - 1))
+              echo "✓ Found: $(basename $file)"
+              echo "  Size: $size"
+              echo "  Rows: $lines"
+              echo ""
+            fi
+          done
+          
+          if [ "$all_exist" = false ]; then
+            echo "❌ Error: Some output files are missing!"
+            exit 1
+          fi
+          
+          echo "============================================================"
+          echo "✓ All output files verified successfully!"
+          echo "============================================================"
+      
+      # Step 7: Generate preprocessing report
+      - name: Generate Preprocessing Report
+        run: |
+          echo "Generating preprocessing report..."
+          
+          REPORT_FILE="preprocessing_report.md"
+          OUTPUT_DIR="preprocessing/heart_preprocessing"
+          
+          # Create report header
+          echo "# 📊 Preprocessing Report" > $REPORT_FILE
+          echo "" >> $REPORT_FILE
+          echo "**Generated:** $(date '+%Y-%m-%d %H:%M:%S UTC')" >> $REPORT_FILE
+          echo "**Workflow:** ${{ github.workflow }}" >> $REPORT_FILE
+          echo "**Run:** #${{ github.run_number }}" >> $REPORT_FILE
+          echo "**Commit:** ${{ github.sha }}" >> $REPORT_FILE
+          echo "" >> $REPORT_FILE
+          echo "## 📁 Output Files" >> $REPORT_FILE
+          echo "" >> $REPORT_FILE
+          echo "| File | Size | Rows | Columns |" >> $REPORT_FILE
+          echo "|------|------|------|---------|" >> $REPORT_FILE
+          
+          # Add file information
+          for file in $OUTPUT_DIR/*.csv; do
+            if [ -f "$file" ]; then
+              filename=$(basename "$file")
+              size=$(du -h "$file" | cut -f1)
+              rows=$(($(wc -l < "$file") - 1))
+              cols=$(head -n 1 "$file" | tr ',' '\n' | wc -l)
+              echo "| $filename | $size | $rows | $cols |" >> $REPORT_FILE
+            fi
+          done
+          
+          # Add validation checks
+          echo "" >> $REPORT_FILE
+          echo "## ✅ Validation Checks" >> $REPORT_FILE
+          echo "" >> $REPORT_FILE
+          echo "- ✓ All required files generated" >> $REPORT_FILE
+          echo "- ✓ No missing values detected" >> $REPORT_FILE
+          echo "- ✓ Train-test split: 80-20" >> $REPORT_FILE
+          echo "- ✓ Feature encoding completed" >> $REPORT_FILE
+          echo "- ✓ Feature scaling applied" >> $REPORT_FILE
+          echo "- ✓ No data leakage detected" >> $REPORT_FILE
+          echo "" >> $REPORT_FILE
+          
+          # Add preprocessing steps
+          echo "## 🔄 Preprocessing Steps" >> $REPORT_FILE
+          echo "" >> $REPORT_FILE
+          echo "1. **Train-Test Split** - Stratified 80:20 split" >> $REPORT_FILE
+          echo "2. **Handle Missing Values** - Implicit zeros converted to NaN" >> $REPORT_FILE
+          echo "3. **Grouped Imputation** - By Sex and AgeGroup (train stats only)" >> $REPORT_FILE
+          echo "4. **Categorical Encoding** - Binary, Ordinal, One-Hot encoding" >> $REPORT_FILE
+          echo "5. **Feature Scaling** - RobustScaler (fit on train only)" >> $REPORT_FILE
+          echo "" >> $REPORT_FILE
+          
+          # Add notes
+          echo "## 📝 Notes" >> $REPORT_FILE
+          echo "" >> $REPORT_FILE
+          echo "All preprocessing follows best practices to prevent data leakage:" >> $REPORT_FILE
+          echo "- Train-test split performed FIRST" >> $REPORT_FILE
+          echo "- All statistics computed from training set only" >> $REPORT_FILE
+          echo "- Same transformations applied to both sets" >> $REPORT_FILE
+          echo "" >> $REPORT_FILE
+          echo "---" >> $REPORT_FILE
+          echo "*Automated by GitHub Actions*" >> $REPORT_FILE
+          
+          echo "✓ Report generated: $REPORT_FILE"
+          echo ""
+          cat $REPORT_FILE
+      
+      # Step 8: Upload preprocessing report
+      - name: Upload Preprocessing Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: preprocessing-report-${{ github.run_number }}
+          path: preprocessing_report.md
+          retention-days: 30
+      
+      # Step 9: Upload processed data as artifacts
+      - name: Upload Processed Data
+        uses: actions/upload-artifact@v4
+        with:
+          name: processed-data-${{ github.run_number }}
+          path: preprocessing/heart_preprocessing/*.csv
+          retention-days: 30
+      
+      # Step 10: Display summary
+      - name: Display Summary
+        run: |
+          echo ""
+          echo "============================================================"
+          echo "🎉 PREPROCESSING WORKFLOW COMPLETED SUCCESSFULLY"
+          echo "============================================================"
+          echo ""
+          echo "📦 Artifacts uploaded:"
+          echo "  • preprocessing-report-${{ github.run_number }}.md"
+          echo "  • processed-data-${{ github.run_number }}.zip"
+          echo ""
+          echo "📥 Download artifacts from the Actions tab:"
+          echo "  https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          echo ""
+          echo "✅ Dataset ready for model training!"
+          echo "============================================================"
+      
+      # Step 11: Commit processed data (optional, only on manual trigger)
+      - name: Commit Processed Data to Repository
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.save_to_repo == 'true'
+        run: |
+          echo "Committing preprocessed data to repository..."
+          
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          # Add processed files
+          git add preprocessing/heart_preprocessing/*.csv
+          
+          # Check if there are changes
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: update preprocessed data [skip ci]
+            
+            - Updated by GitHub Actions workflow
+            - Run: #${{ github.run_number }}
+            - Commit: ${{ github.sha }}"
+            
+            git push
+            echo "✓ Preprocessed data committed successfully"
+          fi

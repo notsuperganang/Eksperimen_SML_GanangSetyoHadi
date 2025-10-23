@@ -431,8 +431,9 @@ if __name__ == "__main__":
     project_root = os.path.dirname(script_dir)
     
     RAW_DATA_PATH = os.path.join(project_root, "heart_raw.csv")
-    OUTPUT_DIR = os.path.join(script_dir, "heart_preprocessing")  
-
+    OUTPUT_DIR = os.path.join(script_dir, "heart_preprocessing")  # Save in preprocessing/heart_preprocessing folder
+    
+    # Create output directory if it doesn't exist
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     
     print("\n" + "="*60)
