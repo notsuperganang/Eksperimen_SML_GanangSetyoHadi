@@ -1,5 +1,8 @@
 # Eksperimen Supervised Machine Learning - Ganang Setyo Hadi
 
+![Python Version](https://img.shields.io/badge/python-3.12.7-blue)
+![MLflow](https://img.shields.io/badge/mlflow-2.19.0-blue)
+
 Repository ini berisi eksperimen machine learning untuk prediksi Heart Failure menggunakan dataset dari Kaggle. Project ini merupakan bagian dari submission Dicoding - Machine Learning Operations (MLOps) class.
 
 ## 📊 Dataset
